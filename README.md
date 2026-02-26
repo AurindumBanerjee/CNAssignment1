@@ -1,246 +1,107 @@
-# 📘 CSL3080 – Assignment 1
-
+# CSL3080 – Assignment 1  
 ## Gossip-Based P2P Network with Two-Level Consensus
 
 ---
 
-## 👥 Authors
+## Authors
 
-* **Aurindum Banerjee** – B23CS1006
-* **Lokesh Motwani** – B23CS1033
-
----
-
-## 📌 Overview
-
-This project implements a **Gossip-Based Peer-to-Peer Network** with:
-
-* ✅ Majority-based Seed Consensus
-* ✅ Power-law (Preferential Attachment) Topology
-* ✅ Reliable Gossip Dissemination
-* ✅ Duplicate Message Suppression
-* ✅ Two-Level Failure Detection Consensus
-* ✅ Standard OS Ping Liveness Detection
-* ✅ Overhead Tracking & Logging
-* ✅ TCP-based Communication
-
-The system is divided into:
-
-* **Seed Nodes** → Membership management + consensus
-* **Peer Nodes** → Gossip network + liveness detection
+- Aurindum Banerjee – B23CS1006  
+- Lokesh Motwani – B23CS1033  
 
 ---
 
-# 🏗 System Architecture
+## Overview
 
-## 1️⃣ Seed Nodes
+This project implements a gossip-based peer-to-peer (P2P) network with:
 
-### Responsibilities:
+- Majority-based seed consensus for membership
+- Preferential-attachment (power-law) overlay construction
+- Reliable gossip dissemination
+- SHA-256–based duplicate suppression
+- Two-level failure detection consensus
+- TCP-based liveness checking
+- Dynamic membership updates
+- Overhead tracking and structured logging
 
-* Maintain global **Peer List (PL)**
-* Handle peer registration via majority quorum
-* Handle dead-node removal via majority consensus
-* Exchange votes with other seeds
+The system consists of:
 
-### Consensus Rule:
+- **Seed Nodes** – Membership management and consensus  
+- **Peer Nodes** – Gossip dissemination and liveness monitoring  
+
+All communication uses TCP sockets with JSON-encoded messages.
+
+---
+
+# System Architecture
+
+## Seed Nodes
+
+- Maintain global `peer_list`
+- Perform majority-based registration
+- Perform majority-based removal
+- Broadcast `PEER_LIST_UPDATE` on membership change
+
+Consensus rule:
 
 ```
-Majority = ⌊n/2⌋ + 1
-```
-
----
-
-## 2️⃣ Peer Nodes
-
-### Responsibilities:
-
-* Register with majority of seeds
-* Build power-law topology
-* Generate gossip every 5 seconds (max 10 messages)
-* Forward each message only once
-* Perform periodic liveness checks
-* Report dead nodes to all seeds **only after network-wide consensus**
-* Receive peer-list updates from seeds when membership changes
-
----
-
-# 📂 Project Structure
-
-```
-CSL3080/
-│
-├── seed.py
-├── peer.py
-├── config.py
-├── utils.py
-├── config.txt
-├── logs/
-│   ├── seed_<port>.log
-│   └── peer_<port>.log
-└── README.md
+Majority = floor(n / 2) + 1
 ```
 
 ---
 
-# ⚙️ Setup Instructions
+## Peer Nodes
 
-## ✅ 1. Requirements
+Startup sequence:
 
-* Python 3.8+
-* Linux / macOS (recommended)
-* Windows users may need to adjust ping command
-
-Upgrade pip (optional):
-
-```bash
-pip install --upgrade pip
-```
-
-No external libraries are required.
+1. Read seeds from `config.txt`
+2. Register with majority of seeds
+3. Merge received peer lists
+4. Build overlay using preferential attachment
+5. Start:
+   - TCP server thread
+   - Gossip generator thread
+   - Liveness checker thread
 
 ---
 
-## ✅ 2. Configure `config.txt`
+# Gossip Protocol
 
-Example:
-
-```
-SEEDS
-127.0.0.1:5000
-127.0.0.1:5001
-127.0.0.1:5002
-
-PEER_PORT=6000
-```
-
-* Seeds run on ports **5000–5002**
-* Each peer must modify `PEER_PORT` before starting
-
----
-
-# ▶️ How to Run
-> **Membership updates:** Seeds automatically push peer-list updates to all peers when a node registers or is removed. Peers receive `PEER_LIST_UPDATE` messages, merge the new list, and rebuild their neighbor sets.
-## Step 1: Start Seed Nodes
-
-Open **3 separate terminals** and run each seed on a unique port:
-
-**Terminal 1:**
-```bash
-python seed.py 5000
-```
-
-**Terminal 2:**
-```bash
-python seed.py 5001
-```
-
-**Terminal 3:**
-```bash
-python seed.py 5002
-```
-
----
-
-## Step 2: Start Peer Nodes
-
-Open multiple terminals and run each peer on a unique port (different from seed ports):
-
-**Terminal 4:**
-```bash
-python peer.py 6000
-```
-
-**Terminal 5:**
-```bash
-python peer.py 6001
-```
-
-**Terminal 6:**
-```bash
-python peer.py 6002
-```
-
-**Terminal 7:**
-```bash
-python peer.py 6003
-```
-
----
-
-# 🌐 Gossip Protocol
-
-* Each peer generates **10 messages**
-* Interval: **5 seconds**
-
-### Message Format:
+Message format:
 
 ```
 <timestamp>:<IP>:<MsgNumber>
 ```
 
-* Each message is forwarded only once per edge
-* Duplicate messages are dropped using **SHA-256 hashing**
-* Seeds broadcast updated peer lists; peers rebuild their overlay automatically
+Rules:
+
+- 10 messages per peer
+- 5-second interval
+- SHA-256 message ID for duplicate suppression
+- Forward to all neighbors except sender
 
 ---
 
-# 🔗 Power-Law Topology
+# Liveness Detection
 
-Topology is built using **Preferential Attachment**:
-
-* Nodes with higher degree have higher probability of new connections
-* Simulates real-world network structure
-* Overlay is rebuilt whenever the peer list changes
-
-### Produces:
-
-* Few high-degree hubs
-* Many low-degree nodes
+- TCP-based connectivity check every 5 seconds
+- 3 consecutive failures trigger suspicion
+- Peer-level voting via `SUSPECT_REQUEST`
+- Majority confirmation triggers `DEAD_REPORT` to seeds
+- Seed-level majority required for final removal
 
 ---
 
-# 💓 Liveness Detection
-
-* Standard TCP connect check used (more accurate on localhost)
-* Ping interval: **10 seconds**
-
-If a node is unreachable:
-
-1. Peer-level suspicion
-2. Dead report sent to all seeds
-3. Seeds remove node after majority agreement
-
----
-
-# 🗳 Two-Level Consensus
-
-## Level 1 – Peer Level
-
-Neighbors suspect failure.
-
-## Level 2 – Seed Level
-
-Majority of seeds must agree before removal.
-
-### Prevents:
-
-* False accusations
-* Single-point removal attacks
-* Malicious peer manipulation
-
----
-
-# 📊 Overhead Tracking
+# Overhead Tracking
 
 Each peer tracks:
 
-* Gossip messages sent
-* Gossip messages received
-* Duplicates dropped
-* Pings sent
-* Dead reports sent
+- gossip_sent  
+- gossip_received  
+- duplicates_dropped  
+- pings_sent  
+- dead_reports_sent
 
-Logs are stored in:
+Logs stored in:
 
 ```
 logs/peer_<port>.log
@@ -249,75 +110,124 @@ logs/seed_<port>.log
 
 ---
 
-# 🔐 Design Decisions
+# Working Images
 
-| Requirement                 | Implementation                  |
-| --------------------------- | ------------------------------- |
-| TCP Only                    | `socket.AF_INET`, `SOCK_STREAM` |
-| Reliable messaging          | JSON protocol                   |
-| No duplicate forwarding     | Hash-based message ID           |
-| Majority-based registration | Seed broadcast voting           |
-| Majority-based removal      | Vote tracking                   |
-| Power-law topology          | Preferential attachment         |
-| Standard liveness check     | OS ping command                 |
-
----
-
-# 🧪 Testing Strategy
-
-1. Start 3 seeds.
-2. Start multiple peers.
-
-Observe:
-
-* Successful majority registration
-* Gossip propagation
-* No duplicate flooding
-
-Kill a peer process.
-
-Observe:
-
-* Ping failure
-* Dead report generation
-* Seed consensus removal
-
----
-
-# 📌 Assumptions
-
-* All nodes run on localhost for simulation
-* Ping command available in system
-* No Byzantine malicious implementation (basic fault model)
-
----
-
-# 🎯 Learning Outcomes
-
-This assignment demonstrates:
-
-* Distributed consensus (quorum-based)
-* Gossip-based dissemination
-* Fault tolerance
-* Overlay network design
-* Power-law graph modeling
-* Socket programming in Python
-* Two-level failure detection
-
----
-
-# 📎 Submission Notes
-
-* No code modification after submission.
-* Only `config.txt` can be changed.
-* Ensure logs are clean before submission.
-
-### Zip format:
+All images are stored inside:
 
 ```
-rollno1-rollno2.tar.gz
+images/
+```
+
+Directory structure:
+
+```
+CSL3080/
+│
+├── seed.py
+├── peer.py
+├── config.py
+├── utils.py
+├── launcher.py
+├── config.txt
+├── logs/
+├── images/
+└── README.md
 ```
 
 ---
 
-# 🚀 End of README
+## Image1 – Seed Registration and Broadcast
+
+Shows registration requests received by seed and majority voting before commit.  
+Peer list updates are broadcast to all active peers after consensus.
+
+![Image1](Images/Image1.jpeg)
+
+---
+
+Shows ping failures leading to suspicion counter increments.  
+Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
+Dead report is sent to seeds after successful consensus.
+
+
+![Image2](Images/Image2.jpeg)
+
+---
+
+## Image3 – Peer Suspicion and Voting Start
+
+Shows ping failures leading to suspicion counter increments.  
+Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
+
+![Image3](Images/Image3.jpeg)
+
+---
+
+## Image4 – Seed-Level Dead Report Handling
+
+Shows seed receiving `DEAD_REPORT` and tracking consensus votes.  
+Dead peer removal occurs only after majority agreement among seeds.
+
+![Image4](Images/Image4.jpeg)
+
+---
+
+
+# How to Run
+
+Start seeds:
+
+```
+python seed.py 5000
+python seed.py 5001
+python seed.py 5002
+```
+
+Start peers:
+
+```
+python peer.py 6000
+python peer.py 6001
+python peer.py 6002
+```
+
+Or use launcher:
+
+```
+python launcher.py 3 5
+```
+
+
+Launcher:
+- Checks port availability
+- Spawns processes
+- Terminates all on Ctrl-C
+
+---
+
+# Testing Procedure
+
+1. Start seeds.
+2. Start peers.
+3. Observe:
+   - Registration majority
+   - Peer list broadcast
+   - Overlay formation
+   - Gossip propagation
+4. Kill a peer.
+5. Observe:
+   - Suspicion phase
+   - Peer-level voting
+   - Dead report
+   - Seed consensus
+   - Peer-list update broadcast
+   - Overlay rebuild
+
+---
+
+
+
+
+---
+
+End of README.
