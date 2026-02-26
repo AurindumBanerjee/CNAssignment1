@@ -110,15 +110,7 @@ logs/seed_<port>.log
 
 ---
 
-# Working Images
-
-All images are stored inside:
-
-```
-images/
-```
-
-Directory structure:
+# Directory structure:
 
 ```
 CSL3080/
@@ -135,6 +127,10 @@ CSL3080/
 ```
 
 ---
+
+# Working Images
+
+Images demonstrating working.
 
 ## Image1 – Seed Registration and Broadcast
 
