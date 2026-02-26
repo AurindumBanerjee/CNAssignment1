@@ -193,10 +193,15 @@ def confirm_dead(peer):
     if peer in dead_reported:
         return
     
-    majority_needed = (len(peer_list) // 2) + 1
+    # exclude the suspect itself when computing majority
+    total_others = max(0, len(peer_list) - 1)
+    majority_needed = (total_others // 2) + 1
     votes = suspect_votes.get(peer, set())
-    if len(votes) + 1 < majority_needed:
-        log_to_file(f"peer_{self_port}.log", f"[VOTING] Cannot confirm {peer}, only {len(votes)}/{majority_needed} votes")
+    # log peers that have yet to reply (useful for debugging / retry logic)
+    missing = [p for p in peer_list if p != peer and p not in votes]
+    log_to_file(f"peer_{self_port}.log", f"[VOTING] current votes {len(votes)}/{majority_needed}, missing {missing}")
+    if len(votes) < majority_needed:
+        log_to_file(f"peer_{self_port}.log", f"[VOTING] Cannot confirm {peer}: not enough votes")
         return
     
     dead_reported.add(peer)
@@ -284,7 +289,9 @@ def handle_connection(conn):
                         suspect_votes[target] = set()
                     suspect_votes[target].add(voter)
                     votes_count = len(suspect_votes[target])
-                    majority_needed = (len(peer_list) // 2) + 1
+                    # compute threshold based on other peers
+                    total_others = max(0, len(peer_list) - 1)
+                    majority_needed = (total_others // 2) + 1
                     log_to_file(f"peer_{self_port}.log", f"[VOTING] Vote received for {target}: {votes_count}/{majority_needed} from {voter}")
                     if votes_count >= majority_needed:
                         log_to_file(f"peer_{self_port}.log", f"[VOTING] MAJORITY ACHIEVED for {target}")

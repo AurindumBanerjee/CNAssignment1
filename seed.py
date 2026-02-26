@@ -11,6 +11,7 @@ MAJORITY = config.get_majority()
 
 peer_list = set()
 dead_votes = {}
+removed_peers = set()
 lock = threading.Lock()
 
 import sys
@@ -98,6 +99,12 @@ def handle_dead_report(msg):
 
     log_to_file(f"seed_{seed_port}.log", f"RECEIVED DEAD_REPORT for {dead_peer} from {msg['sender']}")
 
+    # if we've already removed this peer, ignore the report
+    with lock:
+        if dead_peer in removed_peers:
+            log_to_file(f"seed_{seed_port}.log", f"IGNORING duplicate DEAD_REPORT for {dead_peer}")
+            return
+
     # Broadcast this dead report to other seeds for seed-level consensus
     broadcast_to_other_seeds(msg)
 
@@ -109,7 +116,9 @@ def handle_dead_report(msg):
         if len(dead_votes[dead_peer]) >= MAJORITY:
             if dead_peer in peer_list:
                 peer_list.remove(dead_peer)
+                removed_peers.add(dead_peer)
                 log_to_file(f"seed_{seed_port}.log", f"Peer removed after consensus: {dead_peer}")
+                broadcast_peer_list()
                 broadcast_peer_list()
 
 def handle_connection(conn):
