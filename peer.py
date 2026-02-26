@@ -97,6 +97,7 @@ def gossip_generator():
             f"{time.time()}:{self_ip}:{count}",
             f"{self_ip}:{self_port}"
         )
+        log_to_file(f"peer_{self_port}.log", f"GOSSIP GENERATED: {msg['data']}")
         propagate(msg)
         count += 1
         time.sleep(5)
@@ -138,6 +139,7 @@ def handle_connection(conn):
         if msg["type"] == "GOSSIP":
             tracker.increment("gossip_received")
             propagate(msg, tuple(msg["sender"].split(":")))
+            log_to_file(f"peer_{self_port}.log", f"GOSSIP RECEIVED: {msg['data']}")
 
     finally:
         conn.close()
