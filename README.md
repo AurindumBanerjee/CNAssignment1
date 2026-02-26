@@ -76,7 +76,6 @@ Rules:
 
 - 10 messages per peer
 - 5-second interval
-- SHA-256 message ID for duplicate suppression
 - Forward to all neighbors except sender
 
 ---
