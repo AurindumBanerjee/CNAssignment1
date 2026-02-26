@@ -17,7 +17,6 @@ This project implements a gossip-based peer-to-peer (P2P) network with:
 - Majority-based seed consensus for membership
 - Preferential-attachment (power-law) overlay construction
 - Reliable gossip dissemination
-- SHA-256–based duplicate suppression
 - Two-level failure detection consensus
 - TCP-based liveness checking
 - Dynamic membership updates
