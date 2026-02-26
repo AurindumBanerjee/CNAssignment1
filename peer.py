@@ -4,19 +4,25 @@ import time
 import random
 from config import Config
 from utils import *
-
+import sys
 config = Config()
 SEEDS = config.get_seeds()
 MAJORITY = config.get_majority()
 
 self_ip = "127.0.0.1"
-self_port = config.get_peer_port()
+if len(sys.argv) != 2:
+    print("Usage: python peer.py <port>")
+    sys.exit(1)
+
+self_port = int(sys.argv[1])
 
 neighbors = set()
 peer_list = set()
+peer_lock = threading.Lock()
 message_list = {}  # ML: {hash: metadata}
 suspicion = {}              # local suspicion counter
 suspect_votes = {}          # peer -> {voters}
+dead_reported = set()       # peers for which we've already sent a dead report
 suspect_lock = threading.Lock()
 
 tracker = OverheadTracker()
@@ -29,16 +35,23 @@ def register_with_seeds():
     majority_seeds = random.sample(SEEDS, MAJORITY)
     success_count = 0
 
+    # attempt contact with each seed, retrying a couple of times on failure
     for ip, port in majority_seeds:
-        tracker.increment("registration_messages")
-        msg = create_message("REGISTER", (self_ip, self_port), f"{self_ip}:{self_port}")
-        response = send_tcp_message(ip, port, msg)
+        attempts = 0
+        while attempts < 3:
+            tracker.increment("registration_messages")
+            msg = create_message("REGISTER", (self_ip, self_port), f"{self_ip}:{self_port}")
+            response = send_tcp_message(ip, port, msg)
+            if response and response.get("type") == "REGISTER_SUCCESS":
+                success_count += 1
+                with peer_lock:
+                    peer_list.update([tuple(p) for p in response["data"]])
+                break
+            attempts += 1
+            time.sleep(0.2)
 
-        if response and response["type"] == "REGISTER_SUCCESS":
-            success_count += 1
-            peer_list.update([tuple(p) for p in response["data"]])
-
-    log_to_file(f"peer_{self_port}.log", f"Received peer list: {peer_list}")
+    with peer_lock:
+        log_to_file(f"peer_{self_port}.log", f"Received peer list: {peer_list}")
 
     return success_count >= MAJORITY
 
@@ -46,16 +59,48 @@ def register_with_seeds():
 # Preferential Attachment
 # -------------------------------------------------
 def build_overlay():
-    degrees = {peer: 1 for peer in peer_list}
-    total_degree = sum(degrees.values())
+    """Construct the neighbour set using a simple preferential-attachment
+    (power-law) heuristic.
 
-    for peer in peer_list:
-        if peer == (self_ip, self_port):
-            continue
-        probability = degrees[peer] / total_degree
-        if random.random() < probability:
-            neighbors.add(peer)
-            degrees[peer] += 1
+    Approach:
+    - Sample a desired degree from a heavy-tailed (Pareto) distribution.
+    - Build an "attachment" list containing each candidate once.
+    - Repeatedly pick from the attachment list; after selecting a node we
+      append it again to the attachment list so that already-selected nodes
+      gain higher probability (preferential attachment).
+    """
+
+    neighbors.clear()
+
+    # Candidates excluding self
+    with peer_lock:
+        candidates = [p for p in peer_list if p != (self_ip, self_port)]
+    if not candidates:
+        return
+
+    # Cap max neighbours to avoid excessive connections on small testbeds
+    max_neigh = max(1, min(len(candidates), int(max(1, len(candidates) ** 0.5))))
+
+    # Sample a power-law / Pareto-like degree (alpha tuned to produce heavy tail)
+    try:
+        raw = int(random.paretovariate(1.5))
+    except Exception:
+        raw = 1
+
+    desired_degree = max(1, min(raw, max_neigh))
+
+    # Build initial attachment list (one entry per candidate)
+    attachment = list(candidates)
+    selected = set()
+
+    # Preferential selection: chosen nodes are appended again to increase weight
+    while len(selected) < desired_degree and attachment:
+        choice = random.choice(attachment)
+        selected.add(choice)
+        attachment.append(choice)
+
+    neighbors.update(selected)
+    log_to_file(f"peer_{self_port}.log", f"Neighbors selected (preferential): {neighbors}")
 
 # -------------------------------------------------
 # Gossip
@@ -92,6 +137,12 @@ def gossip_generator():
             f"FINAL OVERHEAD: {tracker.report()}")
 
 def initiate_neighbor_voting(target_peer):
+    """Broadcast a suspicion request to all known peers (not just neighbors).
+
+    Each peer will independently ping the suspect node and reply.  Once a
+    majority of the *entire* peer_list report it dead, the originator will
+    forward a dead report to seeds.
+    """
     with suspect_lock:
         suspect_votes[target_peer] = set()
     
@@ -101,44 +152,82 @@ def initiate_neighbor_voting(target_peer):
         f"{self_ip}:{self_port}"
     )
 
-    for neighbor in neighbors:
-        if neighbor != target_peer:
-            send_tcp_message(neighbor[0], neighbor[1], message)
+    log_to_file(f"peer_{self_port}.log", f"[VOTING] Broadcasting SUSPECT_REQUEST for {target_peer} to all {len(peer_list)} peers")
+
+    for peer in peer_list:
+        if peer != (self_ip, self_port):
+            send_tcp_message(peer[0], peer[1], message)
 # -------------------------------------------------
 # Peer-Level Suspicion + Consensus
 # -------------------------------------------------
 def liveness_checker():
+    # iterate over peer_list instead of neighbours so we always check every
+    # registered peer; neighbours may shrink when nodes die, preventing
+    # further checks.
     while True:
-        for neighbor in list(neighbors):
+        with peer_lock:
+            peers_snapshot = list(peer_list)
+        for peer in peers_snapshot:
+            if peer == (self_ip, self_port):
+                continue
+            
+            alive = is_node_alive(peer[0], peer[1])
             tracker.increment("pings_sent")
-
-            if not is_node_alive(neighbor[0]):
-                suspicion[neighbor] = suspicion.get(neighbor, 0) + 1
+            
+            if not alive:
+                suspicion[peer] = suspicion.get(peer, 0) + 1
+                log_to_file(f"peer_{self_port}.log", f"[LIVENESS] {peer} failed ping. Suspicion: {suspicion[peer]}/3")
             else:
-                suspicion[neighbor] = 0
+                suspicion[peer] = 0
+                log_to_file(f"peer_{self_port}.log", f"[LIVENESS] {peer} is alive. Suspicion reset.")
 
-            # Suspicion phase threshold
-            if suspicion[neighbor] >= 3:
-                initiate_neighbor_voting(neighbor)
+            if suspicion[peer] >= 3:
+                print(f"[{self_port}] initiating voting for neighbor {peer}")
+                log_to_file(f"peer_{self_port}.log", f"[LIVENESS] Initiating neighbor voting for {peer}")
+                initiate_neighbor_voting(peer)
 
         time.sleep(5)
 
 def confirm_dead(peer):
-    dead_string = f"Dead Node:{peer[0]}:{peer[1]}:{time.time()}:{self_ip}"
+    # Only report once and only after majority of ALL peers agree
+    if peer in dead_reported:
+        return
+    
+    majority_needed = (len(peer_list) // 2) + 1
+    votes = suspect_votes.get(peer, set())
+    if len(votes) + 1 < majority_needed:
+        log_to_file(f"peer_{self_port}.log", f"[VOTING] Cannot confirm {peer}, only {len(votes)}/{majority_needed} votes")
+        return
+    
+    dead_reported.add(peer)
+    
+    dead_info = {
+        "ip": peer[0],
+        "port": peer[1],
+        "reported_at": time.time(),
+        "origin": f"{self_ip}:{self_port}"
+    }
 
     dead_msg = create_message(
         "DEAD_REPORT",
-        dead_string,
+        dead_info,
         f"{self_ip}:{self_port}"
     )
 
     tracker.increment("dead_reports_sent")
+    log_to_file(f"peer_{self_port}.log", f"[VOTING] SENDING DEAD_REPORT {dead_info} (votes {len(votes)}/{majority_needed})")
 
     for ip, port in SEEDS:
         send_tcp_message(ip, port, dead_msg)
 
+    # Cleanup
+    peer_list.discard(peer)
+    neighbors.discard(peer)
+    suspicion.pop(peer, None)
+    suspect_votes.pop(peer, None)
+
     log_to_file(f"peer_{self_port}.log",
-                f"Dead node confirmed by neighbor majority: {peer}")
+                f"[VOTING] Dead node {peer} confirmed and removed from local lists.")
 
 # -------------------------------------------------
 # TCP Server
@@ -155,10 +244,21 @@ def handle_connection(conn):
             propagate(msg, (sender_ip, int(sender_port)))
             log_to_file(f"peer_{self_port}.log", f"GOSSIP RECEIVED: {msg['data']}")
 
+        elif msg["type"] == "PEER_LIST_UPDATE":
+            new_list = [tuple(p) for p in msg["data"]]
+            log_to_file(f"peer_{self_port}.log", f"[UPDATE] Received new peer list: {new_list}")
+            with peer_lock:
+                peer_list.update(new_list)
+            build_overlay()
+            log_to_file(f"peer_{self_port}.log", f"[UPDATE] Neighbors rebuilt: {neighbors}")
+
         elif msg["type"] == "SUSPECT_REQUEST":
             target = tuple(msg["data"])
+            requester = msg["sender"]
 
-            alive = is_node_alive(target[0])
+            log_to_file(f"peer_{self_port}.log", f"[VOTING] Received SUSPECT_REQUEST for {target} from {requester}")
+
+            alive = is_node_alive(target[0], target[1])
 
             response = create_message(
                 "SUSPECT_RESPONSE",
@@ -169,21 +269,28 @@ def handle_connection(conn):
                 f"{self_ip}:{self_port}"
             )
 
-            sender_ip, sender_port = msg["sender"].split(":")
+            sender_ip, sender_port = requester.split(":")
             send_tcp_message(sender_ip, int(sender_port), response)
+            log_to_file(f"peer_{self_port}.log", f"[VOTING] Sent SUSPECT_RESPONSE for {target}: alive={alive}")
 
         elif msg["type"] == "SUSPECT_RESPONSE":
             target = tuple(msg["data"]["target"])
             alive = msg["data"]["alive"]
+            voter = msg["sender"]
 
             if not alive:
                 with suspect_lock:
                     if target not in suspect_votes:
                         suspect_votes[target] = set()
-                    suspect_votes[target].add(msg["sender"])
-
-                    if len(suspect_votes[target]) >= (len(neighbors) // 2) + 1:
+                    suspect_votes[target].add(voter)
+                    votes_count = len(suspect_votes[target])
+                    majority_needed = (len(peer_list) // 2) + 1
+                    log_to_file(f"peer_{self_port}.log", f"[VOTING] Vote received for {target}: {votes_count}/{majority_needed} from {voter}")
+                    if votes_count >= majority_needed:
+                        log_to_file(f"peer_{self_port}.log", f"[VOTING] MAJORITY ACHIEVED for {target}")
                         confirm_dead(target)
+            else:
+                log_to_file(f"peer_{self_port}.log", f"[VOTING] {voter} reports {target} is alive")
 
     finally:
         conn.close()

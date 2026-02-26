@@ -59,17 +59,17 @@ def generate_message_id(message):
     return hashlib.sha256(raw.encode()).hexdigest()
 
 # -------------------------------------------------
-# Ping
+# Ping (TCP-based liveness check)
 # -------------------------------------------------
-def is_node_alive(ip):
+def is_node_alive(ip, port):
+    """
+    Check if a peer node is alive by attempting a TCP connection.
+    This verifies both the IP is reachable AND the service is listening on that port.
+    """
     try:
-        result = subprocess.call(
-            ["ping", "-c", "1", "-W", "1", ip],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-        return result == 0
-    except:
+        with socket.create_connection((ip, port), timeout=2):
+            return True
+    except Exception:
         return False
 
 # -------------------------------------------------

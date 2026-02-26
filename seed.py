@@ -13,7 +13,13 @@ peer_list = set()
 dead_votes = {}
 lock = threading.Lock()
 
-seed_port = config.get_peer_port()
+import sys
+
+if len(sys.argv) != 2:
+    print("Usage: python seed.py <port>")
+    sys.exit(1)
+
+seed_port = int(sys.argv[1])
 
 def broadcast_to_other_seeds(message):
     responses = []
@@ -24,6 +30,29 @@ def broadcast_to_other_seeds(message):
         if response:
             responses.append(response)
     return responses
+
+
+def broadcast_peer_list():
+    """Notify every peer in the current peer_list of the updated list.
+
+    The entire operation holds the lock while snapshotting but performs the
+    network I/O outside the lock to avoid blocking other registration handlers.
+    A short sleep is introduced to reduce bursts when multiple joins/leaves
+    happen in quick succession.
+    """
+    with lock:
+        snapshot = list(peer_list)
+    update_msg = create_message("PEER_LIST_UPDATE", snapshot, f"SEED:{seed_port}")
+
+    # brief pause to allow registration threads to complete
+    time.sleep(0.1)
+
+    for ip, port in snapshot:
+        try:
+            send_tcp_message(ip, port, update_msg)
+        except Exception:
+            pass
+    log_to_file(f"seed_{seed_port}.log", f"Broadcasted peer list update to {len(snapshot)} peers")
 
 def handle_register(msg, conn):
     peer = tuple(msg["data"])
@@ -41,6 +70,8 @@ def handle_register(msg, conn):
             peer_list.add(peer)
         response = create_message("REGISTER_SUCCESS", list(peer_list), f"SEED:{seed_port}")
         log_to_file(f"seed_{seed_port}.log", f"Registration committed for {peer}")
+        # broadcast updated list to all peers
+        broadcast_peer_list()
     else:
         response = create_message("REGISTER_FAIL", {}, f"SEED:{seed_port}")
         log_to_file(f"seed_{seed_port}.log", f"Registration failed for {peer}")
@@ -48,7 +79,27 @@ def handle_register(msg, conn):
     conn.sendall(json.dumps(response).encode())
 
 def handle_dead_report(msg):
-    dead_peer = tuple(msg["data"][:2])
+    # support both old string format (for backward compatibility) and the new
+    # structured format
+    data = msg["data"]
+    if isinstance(data, str):
+        parts = data.split(":")
+        if len(parts) >= 3:
+            ip = parts[1]
+            try:
+                port = int(parts[2])
+            except ValueError:
+                return
+            dead_peer = (ip, port)
+        else:
+            return
+    else:
+        dead_peer = (data.get("ip"), data.get("port"))
+
+    log_to_file(f"seed_{seed_port}.log", f"RECEIVED DEAD_REPORT for {dead_peer} from {msg['sender']}")
+
+    # Broadcast this dead report to other seeds for seed-level consensus
+    broadcast_to_other_seeds(msg)
 
     with lock:
         if dead_peer not in dead_votes:
@@ -59,6 +110,7 @@ def handle_dead_report(msg):
             if dead_peer in peer_list:
                 peer_list.remove(dead_peer)
                 log_to_file(f"seed_{seed_port}.log", f"Peer removed after consensus: {dead_peer}")
+                broadcast_peer_list()
 
 def handle_connection(conn):
     try:

@@ -59,7 +59,8 @@ Majority = ⌊n/2⌋ + 1
 * Generate gossip every 5 seconds (max 10 messages)
 * Forward each message only once
 * Perform periodic liveness checks
-* Report dead nodes to all seeds
+* Report dead nodes to all seeds **only after network-wide consensus**
+* Receive peer-list updates from seeds when membership changes
 
 ---
 
@@ -118,37 +119,50 @@ PEER_PORT=6000
 ---
 
 # ▶️ How to Run
-
+> **Membership updates:** Seeds automatically push peer-list updates to all peers when a node registers or is removed. Peers receive `PEER_LIST_UPDATE` messages, merge the new list, and rebuild their neighbor sets.
 ## Step 1: Start Seed Nodes
 
-Open **3 separate terminals**:
+Open **3 separate terminals** and run each seed on a unique port:
 
+**Terminal 1:**
 ```bash
-python seed.py
+python seed.py 5000
 ```
 
-Before starting each seed, modify `PEER_PORT` in `config.txt` to:
+**Terminal 2:**
+```bash
+python seed.py 5001
+```
 
-* 5000
-* 5001
-* 5002
+**Terminal 3:**
+```bash
+python seed.py 5002
+```
 
 ---
 
 ## Step 2: Start Peer Nodes
 
-Open multiple terminals.
+Open multiple terminals and run each peer on a unique port (different from seed ports):
 
-Before running each peer:
-
-* Change `PEER_PORT` in `config.txt` to a unique port
-
-  * Example: 6000, 6001, 6002, 6003
-
-Then run:
-
+**Terminal 4:**
 ```bash
-python peer.py
+python peer.py 6000
+```
+
+**Terminal 5:**
+```bash
+python peer.py 6001
+```
+
+**Terminal 6:**
+```bash
+python peer.py 6002
+```
+
+**Terminal 7:**
+```bash
+python peer.py 6003
 ```
 
 ---
@@ -166,6 +180,7 @@ python peer.py
 
 * Each message is forwarded only once per edge
 * Duplicate messages are dropped using **SHA-256 hashing**
+* Seeds broadcast updated peer lists; peers rebuild their overlay automatically
 
 ---
 
@@ -175,6 +190,7 @@ Topology is built using **Preferential Attachment**:
 
 * Nodes with higher degree have higher probability of new connections
 * Simulates real-world network structure
+* Overlay is rebuilt whenever the peer list changes
 
 ### Produces:
 
@@ -185,7 +201,7 @@ Topology is built using **Preferential Attachment**:
 
 # 💓 Liveness Detection
 
-* Standard OS-level `ping` used
+* Standard TCP connect check used (more accurate on localhost)
 * Ping interval: **10 seconds**
 
 If a node is unreachable:
