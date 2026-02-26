@@ -17,10 +17,11 @@ for port in range(6000,6006):
 print("launched")
 
 # run for a while then kill a peer to test removal
-time.sleep(5)
-print("killing peer 6002")
+# wait long enough for liveness suspicion (3 rounds)
+time.sleep(20)
+print("killing peer 6001")
 for p in tails:
-    if p.args[-1]=="6002":
+    if p.args[-1]=="6001":
         p.kill()
         break
 

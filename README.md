@@ -145,19 +145,20 @@ Peer list updates are broadcast to all active peers after consensus.
 
 ---
 
-## Image2 – Peer Suspicion and Voting Start
+## Image2 - Overlay Construction and Gossip Activity
 
-Shows ping failures leading to suspicion counter increments.  
-Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
+Shows received peer list and preferential neighbor selection.  
+Demonstrates gossip generation, reception, and overhead logging.
 
 ![Image2](Images/Image2.jpeg)
 
 ---
 
-## Image3 – Overlay Construction and Gossip Activity
+## Image3 – Peer Suspicion and Voting Start
 
-Shows received peer list and preferential neighbor selection.  
-Demonstrates gossip generation, reception, and overhead logging.
+Shows ping failures leading to suspicion counter increments.  
+Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
+Dead report is sent to seeds after successful consensus.
 
 ![Image3](Images/Image3.jpeg)
 
@@ -172,14 +173,6 @@ Dead peer removal occurs only after majority agreement among seeds.
 
 ---
 
-## Image5 – Majority Achieved and Dead Report Sent
-
-Shows peer-level majority achieved for suspected node.  
-Dead report is sent to seeds after successful consensus.
-
-![Image5](Images/Image5.jpeg)
-
----
 
 # How to Run
 
