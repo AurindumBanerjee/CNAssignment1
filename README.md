@@ -132,8 +132,8 @@ Images demonstrating working.
 
 ## Image1 – Seed Registration and Broadcast
 
-Shows registration requests received by seed and majority voting before commit.  
-Peer list updates are broadcast to all active peers after consensus.
+Here, we see registration requests received by seed and majority voting before commit.  
+After receiving majority approvals, the seed commits the registration and broadcasts an updated peer list to all active peers.
 
 ![Image1](Images/Image1.jpeg)
 
@@ -141,18 +141,17 @@ Peer list updates are broadcast to all active peers after consensus.
 
 ## Image2 - Overlay Construction and Gossip Activity
 
-Shows received peer list and preferential neighbor selection.  
-Demonstrates gossip generation, reception, and overhead logging.
+We see a peer receiving the merged peer list from seeds and constructing its neighbor set using preferential attachment  (simulating power law).  
+It then generates gossip messages and logs overhead statistics including sent, received, and ping counts.
 
 ![Image2](Images/Image2.jpeg)
 
 ---
 
-## Image3 – Peer Suspicion and Voting Start
+## Image3 – Peer Suspicion and Voting
 
-Shows ping failures leading to suspicion counter increments.  
-Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
-Dead report is sent to seeds after successful consensus.
+This image shows repeated TCP ping failures increasing the suspicion counter. 
+Upon reaching the threshold, the peer broadcasts `SUSPECT_REQUEST`, collects `SUSPECT_RESPONSE` votes from other peers, achieves majority, and sends a structured `DEAD_REPORT` to all seeds.
 
 ![Image3](Images/Image3.jpeg)
 
@@ -160,8 +159,8 @@ Dead report is sent to seeds after successful consensus.
 
 ## Image4 – Seed-Level Dead Report Handling
 
-Shows seed receiving `DEAD_REPORT` and tracking consensus votes.  
-Dead peer removal occurs only after majority agreement among seeds.
+This image shows the seed receiving `DEAD_REPORT` and tracking consensus votes.  
+After majority agreement among seeds, the dead peer is removed from the global `peer_list`, and an updated peer list is broadcast to the remaining peers to rebuild overlays consistently.
 
 ![Image4](Images/Image4.jpeg)
 
@@ -184,12 +183,13 @@ Start peers:
 python peer.py 6000
 python peer.py 6001
 python peer.py 6002
+python peer.py 6003
 ```
 
 Or use launcher:
 
 ```
-python launcher.py 3 5
+python launcher.py 3 4
 ```
 
 
@@ -221,8 +221,3 @@ Launcher:
 ---
 
 
-
-
----
-
-End of README.
