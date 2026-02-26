@@ -12,6 +12,7 @@ MAJORITY = config.get_majority()
 peer_list = set()
 dead_votes = {}
 removed_peers = set()
+processed_dead_reports = set()
 lock = threading.Lock()
 
 import sys
@@ -79,9 +80,16 @@ def handle_register(msg, conn):
 
     conn.sendall(json.dumps(response).encode())
 
+   
+
 def handle_dead_report(msg):
     # support both old string format (for backward compatibility) and the new
     # structured format
+    report_id = generate_message_id(msg)
+    with lock:
+        if report_id in processed_dead_reports:
+            return
+        processed_dead_reports.add(report_id)
     data = msg["data"]
     if isinstance(data, str):
         parts = data.split(":")
@@ -106,6 +114,10 @@ def handle_dead_report(msg):
             return
 
     # Broadcast this dead report to other seeds for seed-level consensus
+    # with lock:
+    #     first_time = dead_peer not in dead_votes
+
+    # if first_time:
     broadcast_to_other_seeds(msg)
 
     with lock:
