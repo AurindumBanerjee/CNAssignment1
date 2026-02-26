@@ -202,7 +202,6 @@ To kill a port, we can either close the respective terminal or use our python co
 
 ```
 python kill_single_port.py
-
 >>> input : <desired peer port to kill>
 ```
 
