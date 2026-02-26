@@ -17,7 +17,6 @@ This project implements a gossip-based peer-to-peer (P2P) network with:
 - Majority-based seed consensus for membership
 - Preferential-attachment (power-law) overlay construction
 - Reliable gossip dissemination
-- SHA-256–based duplicate suppression
 - Two-level failure detection consensus
 - TCP-based liveness checking
 - Dynamic membership updates
@@ -76,7 +75,6 @@ Rules:
 
 - 10 messages per peer
 - 5-second interval
-- SHA-256 message ID for duplicate suppression
 - Forward to all neighbors except sender
 
 ---
@@ -110,15 +108,7 @@ logs/seed_<port>.log
 
 ---
 
-# Working Images
-
-All images are stored inside:
-
-```
-images/
-```
-
-Directory structure:
+# Directory structure:
 
 ```
 CSL3080/
@@ -136,6 +126,10 @@ CSL3080/
 
 ---
 
+# Working Images
+
+Images demonstrating working.
+
 ## Image1 – Seed Registration and Broadcast
 
 Shows registration requests received by seed and majority voting before commit.  
@@ -145,10 +139,10 @@ Peer list updates are broadcast to all active peers after consensus.
 
 ---
 
-Shows ping failures leading to suspicion counter increments.  
-Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
-Dead report is sent to seeds after successful consensus.
+## Image2 - Overlay Construction and Gossip Activity
 
+Shows received peer list and preferential neighbor selection.  
+Demonstrates gossip generation, reception, and overhead logging.
 
 ![Image2](Images/Image2.jpeg)
 
@@ -158,6 +152,7 @@ Dead report is sent to seeds after successful consensus.
 
 Shows ping failures leading to suspicion counter increments.  
 Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
+Dead report is sent to seeds after successful consensus.
 
 ![Image3](Images/Image3.jpeg)
 
