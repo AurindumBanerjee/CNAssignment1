@@ -99,8 +99,7 @@ Each peer tracks:
 - gossip_received  
 - duplicates_dropped  
 - pings_sent  
-- dead_reports_sent  
-- registration_messages  
+- dead_reports_sent
 
 Logs stored in:
 
@@ -124,12 +123,14 @@ Directory structure:
 ```
 CSL3080/
 │
+├── seed.py
+├── peer.py
+├── config.py
+├── utils.py
+├── launcher.py
+├── config.txt
+├── logs/
 ├── images/
-│   ├── Image1.jpeg
-│   ├── Image2.jpeg
-│   ├── Image3.jpeg
-│   ├── Image4.jpeg
-│   └── Image5.jpeg
 └── README.md
 ```
 
@@ -140,7 +141,7 @@ CSL3080/
 Shows registration requests received by seed and majority voting before commit.  
 Peer list updates are broadcast to all active peers after consensus.
 
-![Image1](images/Image1.jpeg)
+![Image1](Images/Image1.jpeg)
 
 ---
 
@@ -149,7 +150,7 @@ Peer list updates are broadcast to all active peers after consensus.
 Shows ping failures leading to suspicion counter increments.  
 Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
 
-![Image2](images/Image2.jpeg)
+![Image2](Images/Image2.jpeg)
 
 ---
 
@@ -158,7 +159,7 @@ Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
 Shows received peer list and preferential neighbor selection.  
 Demonstrates gossip generation, reception, and overhead logging.
 
-![Image3](images/Image3.jpeg)
+![Image3](Images/Image3.jpeg)
 
 ---
 
@@ -167,7 +168,7 @@ Demonstrates gossip generation, reception, and overhead logging.
 Shows seed receiving `DEAD_REPORT` and tracking consensus votes.  
 Dead peer removal occurs only after majority agreement among seeds.
 
-![Image4](images/Image4.jpeg)
+![Image4](Images/Image4.jpeg)
 
 ---
 
@@ -176,7 +177,7 @@ Dead peer removal occurs only after majority agreement among seeds.
 Shows peer-level majority achieved for suspected node.  
 Dead report is sent to seeds after successful consensus.
 
-![Image5](images/Image5.jpeg)
+![Image5](Images/Image5.jpeg)
 
 ---
 
@@ -203,6 +204,32 @@ Or use launcher:
 ```
 python launcher.py 3 5
 ```
+
+
+Launcher:
+- Checks port availability
+- Spawns processes
+- Terminates all on Ctrl-C
+
+---
+
+# Testing Procedure
+
+1. Start seeds.
+2. Start peers.
+3. Observe:
+   - Registration majority
+   - Peer list broadcast
+   - Overlay formation
+   - Gossip propagation
+4. Kill a peer.
+5. Observe:
+   - Suspicion phase
+   - Peer-level voting
+   - Dead report
+   - Seed consensus
+   - Peer-list update broadcast
+   - Overlay rebuild
 
 ---
 
