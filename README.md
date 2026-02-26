@@ -169,7 +169,7 @@ After majority agreement among seeds, the dead peer is removed from the global `
 
 # How to Run
 
-Start seeds:
+Start seeds 
 
 ```
 python seed.py 5000
@@ -177,7 +177,7 @@ python seed.py 5001
 python seed.py 5002
 ```
 
-Start peers:
+Start peers 
 
 ```
 python peer.py 6000
@@ -186,7 +186,7 @@ python peer.py 6002
 python peer.py 6003
 ```
 
-Or use launcher:
+Or use launcher
 
 ```
 python launcher.py 3 4
@@ -198,9 +198,19 @@ Launcher:
 - Spawns processes
 - Terminates all on Ctrl-C
 
+To kill a port, we can either close the respective terminal or use our python code
+
+```
+python kill_single_port.py
+
+>>> input : <desired peer port to kill>
+```
+
+
+
 ---
 
-# Testing Procedure
+## Testing Procedure
 
 1. Start seeds.
 2. Start peers.
@@ -209,7 +219,7 @@ Launcher:
    - Peer list broadcast
    - Overlay formation
    - Gossip propagation
-4. Kill a peer.
+4. Kill a peer. 
 5. Observe:
    - Suspicion phase
    - Peer-level voting
