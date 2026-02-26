@@ -209,7 +209,7 @@ python kill_single_port.py
 
 ---
 
-## Testing Procedure
+### Testing Procedure
 
 1. Start seeds.
 2. Start peers.
