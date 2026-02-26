@@ -1,6 +1,8 @@
 import math
 
 class Config:
+    # simple class to parse our config.txt
+    # file format: SEEDS section and PEER_PORT setting
     def __init__(self, filepath="config.txt"):
         self.filepath = filepath
         self.seeds = []          # [(ip, port)]
@@ -8,6 +10,7 @@ class Config:
         self._parse_config()
 
     def _parse_config(self):
+        # read file
         with open(self.filepath, "r") as f:
             lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
@@ -33,9 +36,8 @@ class Config:
         return self.peer_port
 
     def get_majority(self):
-        """
-        Returns ⌊n/2⌋ + 1 for seed consensus
-        """
+        # majority formula, simple floor(n/2)+1
+        # seed consensus uses this
         n = len(self.seeds)
         return math.floor(n / 2) + 1
 

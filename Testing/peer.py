@@ -1,4 +1,5 @@
-# python peer.py
+# python peer.py (testing version)
+# yeh file test ke liye, comments bhi halka sa hinglish me honge
 
 import socket
 import threading
@@ -23,9 +24,7 @@ tracker = OverheadTracker()
 lock = threading.Lock()
 
 
-# -------------------------------------------------
-# Registration
-# -------------------------------------------------
+# === registration helper for testing peers ===
 
 def register_with_seeds():
     success_count = 0

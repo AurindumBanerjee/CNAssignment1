@@ -1,4 +1,5 @@
-# utils.py
+# utils.py (testing helpers)
+# bhai yeh same utility functions hain but for tests; comments bhi thode friendly
 
 import socket
 import json
@@ -11,9 +12,7 @@ from datetime import datetime
 BUFFER_SIZE = 4096
 
 
-# -------------------------------------------------
-# TCP Communication
-# -------------------------------------------------
+# ---------- tcp send/receive helpers (testing) ----------
 
 def send_tcp_message(ip, port, message_dict, timeout=5):
     """
@@ -48,9 +47,7 @@ def receive_full_message(conn):
     return json.loads(data.decode())
 
 
-# -------------------------------------------------
-# Message Utilities
-# -------------------------------------------------
+# ---------- message helpers for tests ----------
 
 def create_message(msg_type, data, sender):
     """
@@ -72,9 +69,7 @@ def generate_message_id(message):
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-# -------------------------------------------------
-# Logging
-# -------------------------------------------------
+# ---------- logging helper (test use) ----------
 
 log_lock = threading.Lock()
 
@@ -88,9 +83,7 @@ def log_to_file(filename, text):
             f.write(f"[{timestamp}] {text}\n")
 
 
-# -------------------------------------------------
-# Liveness Check using OS ping
-# -------------------------------------------------
+# ---------- simple ping check (system ping) ----------
 
 def is_node_alive(ip):
     """
@@ -108,9 +101,7 @@ def is_node_alive(ip):
         return False
 
 
-# -------------------------------------------------
-# Overhead Tracker
-# -------------------------------------------------
+# ---------- overhead counter class (keep track) ----------
 
 class OverheadTracker:
     def __init__(self):

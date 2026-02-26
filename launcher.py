@@ -8,9 +8,12 @@ import atexit
 BASE_SEED_PORT = 5000
 BASE_PEER_PORT = 6000
 
+# simple helper script to launch bunch of seeds and peers on localhost
+# use to quickly spin up testbed, ek script se sab start hojaye
+
 
 def port_free(port, host="127.0.0.1", timeout=1.0):
-    """Return True if nothing is listening on (host, port)."""
+    # check ki port me koi sun raha hai ya nahi
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return False
@@ -19,7 +22,7 @@ def port_free(port, host="127.0.0.1", timeout=1.0):
 
 
 def wait_for_port(port, host="127.0.0.1", attempts=20, delay=0.5):
-    """Block until a process is listening or until we give up."""
+    # wait karo jab tak koi service port open na ho jaye ya attempts khatam ho
     for _ in range(attempts):
         if not port_free(port, host):
             return True
@@ -84,7 +87,7 @@ if __name__ == "__main__":
     print("press Ctrl-C to terminate all processes")
 
     try:
-        # keep the launcher alive so the atexit handler can run
+        # launcher zinda rakhna taaki atexit cleanup ho sake
         while True:
             time.sleep(1)
     except KeyboardInterrupt:

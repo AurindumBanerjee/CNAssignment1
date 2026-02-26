@@ -5,6 +5,9 @@ import random
 from config import Config
 from utils import *
 
+# this is seed node code
+# it keeps list of peers and helps with registration + dead reports
+
 config = Config()
 SEEDS = config.get_seeds()
 MAJORITY = config.get_majority()
@@ -46,7 +49,7 @@ def broadcast_peer_list():
         snapshot = list(peer_list)
     update_msg = create_message("PEER_LIST_UPDATE", snapshot, f"SEED:{seed_port}")
 
-    # brief pause to allow registration threads to complete
+    # chhota sa delay taaki thread registration complete ho jaye
     time.sleep(0.1)
 
     for ip, port in snapshot:
@@ -57,6 +60,8 @@ def broadcast_peer_list():
     log_to_file(f"seed_{seed_port}.log", f"Broadcasted peer list update to {len(snapshot)} peers")
 
 def handle_register(msg, conn):
+    # peer wants to join network
+    # we ask other seeds for vote, simple majority rule 
     peer = tuple(msg["data"])
     log_to_file(f"seed_{seed_port}.log", f"Registration request from {peer}")
 
@@ -83,8 +88,7 @@ def handle_register(msg, conn):
    
 
 def handle_dead_report(msg):
-    # support both old string format (for backward compatibility) and the new
-    # structured format
+    # processing report that some peer died
     report_id = generate_message_id(msg)
     with lock:
         if report_id in processed_dead_reports:
@@ -113,11 +117,8 @@ def handle_dead_report(msg):
             log_to_file(f"seed_{seed_port}.log", f"IGNORING duplicate DEAD_REPORT for {dead_peer}")
             return
 
-    # Broadcast this dead report to other seeds for seed-level consensus
-    # with lock:
-    #     first_time = dead_peer not in dead_votes
-
-    # if first_time:
+    # send the report to other seeds also, jaise gossip
+    # note: we don't care about first_time logic anymore
     broadcast_to_other_seeds(msg)
 
     with lock:

@@ -10,9 +10,11 @@ from datetime import datetime
 BUFFER_SIZE = 4096
 log_lock = threading.Lock()
 
-# -------------------------------------------------
-# Logging
-# -------------------------------------------------
+# general helper functions
+
+# ---------- logging helpers ----------
+# thread-safe logging, sab logs "logs/" mein store honge
+
 def log_to_file(filename, text):
     os.makedirs("logs", exist_ok=True)
     with log_lock:
@@ -21,9 +23,9 @@ def log_to_file(filename, text):
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             f.write(f"[{timestamp}] {text}\n")
 
-# -------------------------------------------------
-# TCP Communication
-# -------------------------------------------------
+# ---------- simple TCP helpers ----------
+# built on json, connect-send-receive simple
+
 def send_tcp_message(ip, port, message_dict, timeout=5):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -34,6 +36,7 @@ def send_tcp_message(ip, port, message_dict, timeout=5):
             if response:
                 return json.loads(response.decode())
     except:
+        # koi miss ho gaya return None
         return None
     return None
 
@@ -43,9 +46,9 @@ def receive_full_message(conn):
         return None
     return json.loads(data.decode())
 
-# -------------------------------------------------
-# Message Utilities
-# -------------------------------------------------
+# ---------- message helpers ----------
+# sab message same structure mein honi chahiye
+
 def create_message(msg_type, data, sender):
     return {
         "type": msg_type,
@@ -58,13 +61,13 @@ def generate_message_id(message):
     raw = json.dumps(message, sort_keys=True)
     return hashlib.sha256(raw.encode()).hexdigest()
 
-# -------------------------------------------------
-# Ping (TCP-based liveness check)
-# -------------------------------------------------
+# ---------- ping-like liveness check ----------
+# TCP connect try kar ke dekho, alive ya nahi
+
 def is_node_alive(ip, port):
     """
-    Check if a peer node is alive by attempting a TCP connection.
-    This verifies both the IP is reachable AND the service is listening on that port.
+    yeh function check karta hai ki koi peer port pe sun raha hai ya nahi.
+    koi fancy ICMP nahi, simple TCP try.
     """
     try:
         with socket.create_connection((ip, port), timeout=2):

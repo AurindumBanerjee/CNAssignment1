@@ -5,6 +5,10 @@ import random
 from config import Config
 from utils import *
 import sys
+
+# peer ka main code hai, server bhi banega aur client bhi
+# peer talks to seeds for joining, then gossip aur voting karega
+
 config = Config()
 SEEDS = config.get_seeds()
 MAJORITY = config.get_majority()
@@ -28,14 +32,12 @@ suspect_lock = threading.Lock()
 tracker = OverheadTracker()
 lock = threading.Lock()
 
-# -------------------------------------------------
-# Registration
-# -------------------------------------------------
+# ======= Registration section (peer seeds se milke register karta) ========
 def register_with_seeds():
     majority_seeds = random.sample(SEEDS, MAJORITY)
     success_count = 0
 
-    # attempt contact with each seed, retrying a couple of times on failure
+    # seeds ko ping karo, agar it fails then retry
     for ip, port in majority_seeds:
         attempts = 0
         while attempts < 3:
@@ -55,9 +57,7 @@ def register_with_seeds():
 
     return success_count >= MAJORITY
 
-# -------------------------------------------------
-# Preferential Attachment
-# -------------------------------------------------
+# ======= Preferential attachment logic: neighbours choosing algo sort of ========
 def build_overlay():
     """Construct the neighbour set using a simple preferential-attachment
     (power-law) heuristic.
@@ -72,16 +72,16 @@ def build_overlay():
 
     neighbors.clear()
 
-    # Candidates excluding self
+    # check all peers except self
     with peer_lock:
         candidates = [p for p in peer_list if p != (self_ip, self_port)]
     if not candidates:
         return
 
-    # Cap max neighbours to avoid excessive connections on small testbeds
+    # small test bed dont need many as such
     max_neigh = max(1, min(len(candidates), int(max(1, len(candidates) ** 0.5))))
 
-    # Sample a power-law / Pareto-like degree (alpha tuned to produce heavy tail)
+    # choose a random degree, using heavy-tailed distribution
     try:
         raw = int(random.paretovariate(1.5))
     except Exception:
@@ -89,11 +89,11 @@ def build_overlay():
 
     desired_degree = max(1, min(raw, max_neigh))
 
-    # Build initial attachment list (one entry per candidate)
+    # initially attachment me sab candidates ek baar dalte hain
     attachment = list(candidates)
     selected = set()
 
-    # Preferential selection: chosen nodes are appended again to increase weight
+    # agar choose kiya toh dubara dal do
     while len(selected) < desired_degree and attachment:
         choice = random.choice(attachment)
         selected.add(choice)
@@ -102,9 +102,8 @@ def build_overlay():
     neighbors.update(selected)
     log_to_file(f"peer_{self_port}.log", f"Neighbors selected (preferential): {neighbors}")
 
-# -------------------------------------------------
-# Gossip
-# -------------------------------------------------
+# ======= Gossiping ka code ========
+
 def propagate(message, sender=None):
     msg_id = generate_message_id(message)
 
@@ -157,12 +156,10 @@ def initiate_neighbor_voting(target_peer):
     for peer in peer_list:
         if peer != (self_ip, self_port):
             send_tcp_message(peer[0], peer[1], message)
-# -------------------------------------------------
-# Peer-Level Suspicion + Consensus
-# -------------------------------------------------
+# ======= Peer-level suspiciousness + consensus voting (logic) ========
 def liveness_checker():
-    # iterate over peer_list instead of neighbours so we always check every
-    # registered peer; neighbours may shrink when nodes die, preventing
+    # yeh thread sab peers ko ping karega, neighbours chhote ho sakte hain but
+    # we want to check whole peer_list, warna kuch ke mar jaane se alert nahi aayega
     # further checks.
     while True:
         with peer_lock:
