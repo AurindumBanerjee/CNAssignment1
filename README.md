@@ -141,7 +141,7 @@ After receiving majority approvals, the seed commits the registration and broadc
 
 ## Image2 - Overlay Construction and Gossip Activity
 
-We see a peer receiving the merged peer list from seeds and constructing its neighbor set using preferential attachment  (simulating power law).  
+We see a peer receiving the merged peer list from seeds and constructing its neighbor set using preferential attachment (simulating power law).  
 It then generates gossip messages and logs overhead statistics including sent, received, and ping counts.
 
 ![Image2](Images/Image2.jpeg)
@@ -150,7 +150,7 @@ It then generates gossip messages and logs overhead statistics including sent, r
 
 ## Image3 – Peer Suspicion and Voting
 
-This image shows repeated TCP ping failures increasing the suspicion counter. 
+This image shows repeated TCP ping failures increasing the suspicion counter.
 Upon reaching the threshold, the peer broadcasts `SUSPECT_REQUEST`, collects `SUSPECT_RESPONSE` votes from other peers, achieves majority, and sends a structured `DEAD_REPORT` to all seeds.
 
 ![Image3](Images/Image3.jpeg)
@@ -159,7 +159,7 @@ Upon reaching the threshold, the peer broadcasts `SUSPECT_REQUEST`, collects `SU
 
 ## Image4 – Seed-Level Dead Report Handling
 
-This image shows the seed receiving `DEAD_REPORT` and tracking consensus votes.  
+This image shows the seed receiving `DEAD_REPORT` and tracking consensus votes.
 After majority agreement among seeds, the dead peer is removed from the global `peer_list`, and an updated peer list is broadcast to the remaining peers to rebuild overlays consistently.
 
 ![Image4](Images/Image4.jpeg)
