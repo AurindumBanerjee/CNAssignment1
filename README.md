@@ -145,10 +145,10 @@ Peer list updates are broadcast to all active peers after consensus.
 
 ---
 
-Shows ping failures leading to suspicion counter increments.  
-Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
-Dead report is sent to seeds after successful consensus.
+## Image2 - Overlay Construction and Gossip Activity
 
+Shows received peer list and preferential neighbor selection.  
+Demonstrates gossip generation, reception, and overhead logging.
 
 ![Image2](Images/Image2.jpeg)
 
@@ -158,6 +158,7 @@ Dead report is sent to seeds after successful consensus.
 
 Shows ping failures leading to suspicion counter increments.  
 Peer initiates `SUSPECT_REQUEST` broadcast to all peers for voting.
+Dead report is sent to seeds after successful consensus.
 
 ![Image3](Images/Image3.jpeg)
 
